@@ -106,6 +106,20 @@ export async function init(canvas) {
                             <button id="btnSimpanSesi" class="btn-primary full">
                                 <i class="fas fa-play"></i> MULAI SESI
                             </button>
+                            <!-- ADMIN-ONLY ACTIONS (hidden by default, shown on edit mode) -->
+                            <div id="adminActionsPanel" style="display:none; margin-top:10px; border-top:1px dashed #f0f0f0; padding-top:10px; display:none;">
+                                <div style="font-size:0.68rem; text-transform:uppercase; letter-spacing:0.5px; color:#aaa; margin-bottom:8px; display:flex; align-items:center; gap:5px;">
+                                    <i class="fas fa-shield-halved" style="color:#f59e0b;"></i> Aksi Admin
+                                </div>
+                                <div style="display:flex; gap:8px;">
+                                    <button id="btnMergeMateri" class="btn-admin-action btn-merge" title="Ganti materi ini ke materi lain di semua pertemuan kelas ini">
+                                        <i class="fas fa-code-merge"></i> Ganti & Merge Materi
+                                    </button>
+                                    <button id="btnHapusSesi" class="btn-admin-action btn-danger-soft" title="Hapus pertemuan ini beserta semua nilai dan target">
+                                        <i class="fas fa-trash-can"></i> Hapus Sesi
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -292,6 +306,42 @@ function injectStyles() {
         .materi-status.is-existing { background:#dcfce7; color:#15803d; border:1px solid #bbf7d0; }
         .materi-status.hidden { display:none !important; }
 
+        /* --- ADMIN ACTION BUTTONS --- */
+        #adminActionsPanel { display:none; margin-top:10px; border-top:1px dashed #f0f0f0; padding-top:10px; }
+        .btn-admin-action { flex:1; padding:9px 10px; border-radius:9px; font-size:0.78rem; font-weight:700; cursor:pointer; border:none; display:flex; align-items:center; justify-content:center; gap:6px; transition:0.2s; }
+        .btn-merge { background:#fff7ed; color:#c2410c; border:1px solid #fed7aa; }
+        .btn-merge:hover { background:#ffedd5; border-color:#fb923c; }
+        .btn-danger-soft { background:#fff1f2; color:#be123c; border:1px solid #fecdd3; }
+        .btn-danger-soft:hover { background:#ffe4e6; border-color:#fb7185; }
+
+        /* --- MODAL OVERLAY (ADMIN) --- */
+        .admin-modal-overlay { position:fixed; inset:0; background:rgba(15,23,42,0.6); z-index:9800; display:flex; align-items:center; justify-content:center; padding:20px; animation:fadeInMP 0.2s ease-out; }
+        .admin-modal-card { background:white; border-radius:16px; max-width:420px; width:100%; padding:24px; box-shadow:0 25px 60px rgba(0,0,0,0.3); animation:popInMP 0.2s cubic-bezier(0.34,1.56,0.64,1); }
+        @keyframes fadeInMP { from { opacity:0; } to { opacity:1; } }
+        @keyframes popInMP { from { transform:scale(0.85); opacity:0; } to { transform:scale(1); opacity:1; } }
+        .admin-modal-icon { width:52px; height:52px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.3rem; margin:0 auto 14px; }
+        .icon-danger { background:#fee2e2; color:#dc2626; }
+        .icon-merge { background:#fff7ed; color:#ea580c; }
+        .admin-modal-title { font-size:1.05rem; font-weight:800; color:#1e293b; margin-bottom:6px; text-align:center; }
+        .admin-modal-body { font-size:0.88rem; color:#475569; line-height:1.55; margin-bottom:18px; text-align:center; }
+        .admin-modal-body strong { color:#1e293b; }
+        .admin-modal-body .warn-box { background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:10px 14px; margin:10px 0; text-align:left; font-size:0.82rem; color:#991b1b; }
+        .admin-modal-body .info-box { background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:10px 14px; margin:10px 0; text-align:left; font-size:0.82rem; color:#1e40af; }
+        .admin-modal-actions { display:flex; gap:10px; }
+        .btn-modal-cancel { flex:1; padding:11px; border-radius:10px; border:1px solid #e2e8f0; background:#f8fafc; color:#475569; font-weight:600; cursor:pointer; }
+        .btn-modal-danger { flex:1; padding:11px; border-radius:10px; border:none; background:linear-gradient(135deg,#ef4444,#dc2626); color:white; font-weight:700; cursor:pointer; }
+        .btn-modal-merge { flex:1; padding:11px; border-radius:10px; border:none; background:linear-gradient(135deg,#fb923c,#ea580c); color:white; font-weight:700; cursor:pointer; }
+
+        /* Merge modal - search input */
+        .merge-search-wrap { position:relative; margin:12px 0; }
+        .merge-search-wrap input { width:100%; padding:11px 12px; border:1px solid #e2e8f0; border-radius:10px; font-size:0.9rem; box-sizing:border-box; }
+        .merge-search-wrap input:focus { border-color:#f97316; outline:none; box-shadow:0 0 0 3px rgba(249,115,22,0.1); }
+        .merge-suggestion-box { position:absolute; top:100%; left:0; right:0; z-index:100; background:white; border:1px solid #e2e8f0; border-radius:10px; box-shadow:0 10px 25px rgba(0,0,0,0.12); overflow:hidden; margin-top:3px; }
+        .merge-sugg-item { padding:10px 12px; cursor:pointer; font-size:0.85rem; border-bottom:1px solid #f1f5f9; display:flex; justify-content:space-between; align-items:center; }
+        .merge-sugg-item:last-child { border-bottom:none; }
+        .merge-sugg-item:hover { background:#fff7ed; }
+        .merge-preview { background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:10px 12px; font-size:0.8rem; color:#15803d; margin-top:8px; display:none; }
+
     `;
     document.head.appendChild(style);
 }
@@ -340,6 +390,19 @@ function setupEventListeners() {
 
     // --- MATERI SEARCH / AUTOCOMPLETE ---
     setupMateriSearch();
+
+    // --- ADMIN ACTIONS (Hapus Sesi & Merge Materi) ---
+    document.getElementById('btnHapusSesi').onclick = () => confirmHapusSesi();
+    document.getElementById('btnMergeMateri').onclick = () => openMergeModal();
+}
+
+/** Tampilkan/sembunyikan admin actions panel berdasarkan role dan mode */
+function updateAdminPanel() {
+    const isAdmin = localStorage.getItem('user_role') === 'super_admin';
+    const panel = document.getElementById('adminActionsPanel');
+    if (!panel) return;
+    // Tampil hanya jika admin DAN ada sesi aktif (mode EDIT)
+    panel.style.display = (isAdmin && currentSessionId) ? 'block' : 'none';
 }
 
 function setupMateriSearch() {
@@ -528,6 +591,7 @@ async function savePertemuan() {
         }
 
         updateSessionStatus("AKTIF", true);
+        updateAdminPanel(); // Tampilkan tombol admin jika super_admin
         document.getElementById("btn-reset-mode").style.display = 'block';
         
         // Manual Toggle Accordion
@@ -817,6 +881,7 @@ async function loadSessionForEdit(sessionId) {
                 }
             }
             updateSessionStatus("EDIT MODE", true);
+            updateAdminPanel(); // Tampilkan tombol admin jika super_admin
             document.getElementById("btn-reset-mode").style.display = 'block';
             
             // Accordion Logic: Setup Open
@@ -864,6 +929,7 @@ function resetToNewMode() {
     const jumlahSel = document.getElementById('jumlahSesi');
     if (jumlahSel) jumlahSel.value = '1';
     updateSessionStatus("BARU", false);
+    updateAdminPanel(); // sembunyikan panel admin (tidak ada sesi)
     
     document.getElementById("btn-reset-mode").style.display = 'none';
     document.getElementById("monitoringSection").style.display = 'none';
@@ -972,6 +1038,248 @@ async function checkMateriPrivateStatus(kw) {
 function escapeHtml(text) {
     const NAMES = { 38: 'amp', 60: 'lt', 62: 'gt', 34: 'quot', 39: '#39' };
     return String(text ?? '').replace(/[&<>"']/g, ch => '&' + NAMES[ch.charCodeAt(0)] + ';');
+}
+
+// ==========================================
+// ADMIN ACTIONS
+// ==========================================
+
+/**
+ * Konfirmasi & hapus sesi beserta semua data turunannya.
+ * Cascade: achievement_pertemuan → achievement_target → attendance_private → pertemuan_private
+ */
+async function confirmHapusSesi() {
+    if (!currentSessionId) return;
+
+    // Hitung data yang akan terhapus untuk warning
+    const [resAtt, resScore, resTarget] = await Promise.all([
+        supabase.from('attendance_private').select('id', { count: 'exact', head: true }).eq('pertemuan_id', currentSessionId),
+        supabase.from('achievement_pertemuan').select('id', { count: 'exact', head: true }).eq('pertemuan_id', currentSessionId),
+        supabase.from('achievement_target').select('id', { count: 'exact', head: true }).eq('pertemuan_id', currentSessionId),
+    ]);
+
+    const nSiswa = resAtt.count || 0;
+    const nScore = resScore.count || 0;
+    const nTarget = resTarget.count || 0;
+
+    const tgl = document.getElementById('tglPertemuan').value;
+    const materi = document.getElementById('materiUtama').value || '(tanpa materi)';
+
+    const confirmed = await showAdminConfirm({
+        icon: 'danger',
+        title: 'Hapus Sesi Ini?',
+        body: `
+            <strong>${new Date(tgl).toLocaleDateString('id-ID', {day:'numeric', month:'long', year:'numeric'})}</strong><br>
+            Materi: <strong>${escapeHtml(materi)}</strong>
+            <div class="warn-box">
+                <i class="fas fa-triangle-exclamation"></i> Data yang akan ikut terhapus permanen:
+                <ul style="margin:6px 0 0 16px; padding:0;">
+                    <li>${nSiswa} catatan kehadiran siswa</li>
+                    <li>${nTarget} target capaian sesi</li>
+                    <li>${nScore} penilaian achievement siswa</li>
+                </ul>
+                Tindakan ini <strong>tidak dapat dibatalkan</strong>.
+            </div>
+        `,
+        confirmLabel: 'Ya, Hapus Sesi',
+        confirmClass: 'btn-modal-danger',
+    });
+
+    if (!confirmed) return;
+
+    const btn = document.getElementById('btnHapusSesi');
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    btn.disabled = true;
+
+    try {
+        // Cascade delete (urutan penting: anak dulu, baru parent)
+        await supabase.from('achievement_pertemuan').delete().eq('pertemuan_id', currentSessionId);
+        await supabase.from('achievement_target').delete().eq('pertemuan_id', currentSessionId);
+        await supabase.from('attendance_private').delete().eq('pertemuan_id', currentSessionId);
+        await supabase.from('pertemuan_private').delete().eq('id', currentSessionId);
+
+        // Reset ke mode baru
+        resetToNewMode();
+        await loadHistory();
+        alert('✅ Sesi berhasil dihapus.');
+    } catch (err) {
+        alert('❌ Gagal menghapus: ' + err.message);
+    } finally {
+        btn.innerHTML = '<i class="fas fa-trash-can"></i> Hapus Sesi';
+        btn.disabled = false;
+    }
+}
+
+/**
+ * Buka modal Ganti & Merge Materi.
+ * User mencari materi TARGET (yang benar), lalu semua pertemuan di kelas ini
+ * yang pakai materi LAMA akan di-UPDATE ke materi baru.
+ */
+async function openMergeModal() {
+    if (!currentSessionId) return;
+
+    const materiLama = document.getElementById('materiUtama').value?.trim() || '?';
+
+    // Ambil materi_id yang sedang aktif pada sesi ini
+    const { data: sesiData } = await supabase.from('pertemuan_private')
+        .select('materi_id').eq('id', currentSessionId).single();
+    if (!sesiData?.materi_id) return alert('Materi sesi ini belum tersimpan.');
+
+    const materiLamaId = sesiData.materi_id;
+
+    // Hitung berapa pertemuan yang pakai materi lama di kelas ini
+    const { count: jumlahPakai } = await supabase.from('pertemuan_private')
+        .select('id', { count: 'exact', head: true })
+        .eq('class_id', classId)
+        .eq('materi_id', materiLamaId);
+
+    let targetMateriId = null;
+    let targetMateriJudul = '';
+
+    // Buat elemen modal
+    const ov = document.createElement('div');
+    ov.className = 'admin-modal-overlay';
+    ov.innerHTML = `
+        <div class="admin-modal-card">
+            <div class="admin-modal-icon icon-merge"><i class="fas fa-code-merge"></i></div>
+            <div class="admin-modal-title">Ganti & Merge Materi</div>
+            <div class="admin-modal-body">
+                Materi saat ini: <strong>${escapeHtml(materiLama)}</strong>
+                <div class="info-box">
+                    <i class="fas fa-circle-info"></i> Dipakai di <strong>${jumlahPakai || 1} pertemuan</strong> kelas ini.
+                    Semua pertemuan tersebut akan diganti ke materi baru yang Anda pilih.
+                </div>
+                <div class="merge-search-wrap">
+                    <input type="text" id="mergeSearchInput" placeholder="Cari materi tujuan..." autocomplete="off">
+                    <div id="mergeSuggBox" class="merge-suggestion-box" style="display:none;"></div>
+                </div>
+                <div id="mergePreview" class="merge-preview"></div>
+            </div>
+            <div class="admin-modal-actions">
+                <button type="button" class="btn-modal-cancel" id="mergeCancelBtn">Batal</button>
+                <button type="button" class="btn-modal-merge" id="mergeConfirmBtn" disabled>
+                    <i class="fas fa-code-merge"></i> Merge Sekarang
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(ov);
+
+    // Setup search
+    let mergeDebounce = null;
+    const searchInput = ov.querySelector('#mergeSearchInput');
+    const suggBox = ov.querySelector('#mergeSuggBox');
+    const preview = ov.querySelector('#mergePreview');
+    const confirmBtn = ov.querySelector('#mergeConfirmBtn');
+
+    searchInput.addEventListener('input', () => {
+        clearTimeout(mergeDebounce);
+        mergeDebounce = setTimeout(async () => {
+            const kw = searchInput.value.trim();
+            if (kw.length < 2) { suggBox.style.display = 'none'; return; }
+
+            let q = supabase.from('materi_private')
+                .select('id, judul, sub_levels(name)')
+                .eq('level_id', levelId)
+                .ilike('judul', `%${kw}%`)
+                .neq('id', materiLamaId) // Jangan tampilkan materi yang sedang aktif
+                .limit(8);
+            if (subLevelId) q = q.eq('sub_level_id', subLevelId);
+
+            const { data } = await q;
+            if (!data?.length) {
+                suggBox.innerHTML = `<div style="padding:10px 12px; font-size:0.8rem; color:#94a3b8;">Tidak ditemukan. Pastikan materi sudah terdaftar di level ini.</div>`;
+            } else {
+                suggBox.innerHTML = data.map(m => `
+                    <div class="merge-sugg-item" data-id="${m.id}" data-judul="${escapeHtml(m.judul)}">
+                        <span>${escapeHtml(m.judul)}</span>
+                        ${m.sub_levels?.name ? `<span style="font-size:0.7rem; color:#2563eb; background:#dbeafe; padding:2px 7px; border-radius:12px;">${escapeHtml(m.sub_levels.name)}</span>` : ''}
+                    </div>
+                `).join('');
+            }
+            suggBox.style.display = 'block';
+        }, 300);
+    });
+
+    // Klik item saran
+    suggBox.addEventListener('click', (e) => {
+        const item = e.target.closest('.merge-sugg-item');
+        if (!item) return;
+        targetMateriId = item.dataset.id;
+        targetMateriJudul = item.dataset.judul;
+        searchInput.value = targetMateriJudul;
+        suggBox.style.display = 'none';
+        preview.innerHTML = `<i class="fas fa-check-circle"></i> Materi tujuan: <strong>${escapeHtml(targetMateriJudul)}</strong><br>
+            <span style="opacity:0.8;">${jumlahPakai || 1} pertemuan akan diperbarui.</span>`;
+        preview.style.display = 'block';
+        confirmBtn.disabled = false;
+    });
+
+    // Tutup modal saat klik luar
+    ov.addEventListener('click', (e) => { if (e.target === ov) ov.remove(); });
+    ov.querySelector('#mergeCancelBtn').onclick = () => ov.remove();
+
+    // Konfirmasi merge
+    confirmBtn.onclick = async () => {
+        if (!targetMateriId) return;
+        confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...';
+        confirmBtn.disabled = true;
+
+        try {
+            // UPDATE semua pertemuan di kelas ini yang pakai materi lama
+            const { error } = await supabase.from('pertemuan_private')
+                .update({ materi_id: targetMateriId })
+                .eq('class_id', classId)
+                .eq('materi_id', materiLamaId);
+
+            if (error) throw error;
+
+            // Update form sesi saat ini juga
+            document.getElementById('materiUtama').value = targetMateriJudul;
+
+            ov.remove();
+            await loadHistory();
+            // Reload sesi agar UI sinkron
+            await window.loadSessionForEdit(currentSessionId);
+            alert(`✅ Berhasil! ${jumlahPakai || 1} pertemuan diperbarui ke materi "${targetMateriJudul}".`);
+        } catch (err) {
+            alert('❌ Gagal merge: ' + err.message);
+            confirmBtn.innerHTML = '<i class="fas fa-code-merge"></i> Merge Sekarang';
+            confirmBtn.disabled = false;
+        }
+    };
+
+    // Fokus ke search setelah modal muncul
+    setTimeout(() => searchInput.focus(), 100);
+}
+
+/**
+ * Helper: tampilkan modal konfirmasi admin yang bisa dikustomisasi.
+ * Returns Promise<boolean>
+ */
+function showAdminConfirm({ icon, title, body, confirmLabel, confirmClass }) {
+    return new Promise((resolve) => {
+        const ov = document.createElement('div');
+        ov.className = 'admin-modal-overlay';
+        ov.innerHTML = `
+            <div class="admin-modal-card">
+                <div class="admin-modal-icon icon-${icon}">
+                    <i class="fas fa-${icon === 'danger' ? 'triangle-exclamation' : 'circle-info'}"></i>
+                </div>
+                <div class="admin-modal-title">${title}</div>
+                <div class="admin-modal-body">${body}</div>
+                <div class="admin-modal-actions">
+                    <button type="button" class="btn-modal-cancel" id="ac-cancel">Batal</button>
+                    <button type="button" class="${confirmClass}" id="ac-confirm">${confirmLabel}</button>
+                </div>
+            </div>
+        `;
+        const done = (val) => { ov.remove(); resolve(val); };
+        ov.querySelector('#ac-cancel').onclick = () => done(false);
+        ov.querySelector('#ac-confirm').onclick = () => done(true);
+        ov.addEventListener('click', (e) => { if (e.target === ov) done(false); });
+        document.body.appendChild(ov);
+    });
 }
 
 function setupMainAchSearch() {
