@@ -54,7 +54,7 @@ export async function initSekolah(container) {
     container.innerHTML = `
         <div style="display:flex; justify-content:flex-end; margin-bottom:14px;">
             <button id="bs-add" class="bp-btn-primary">
-                <i class="fas fa-plus"></i> Deklarasi Kontrak
+                <i class="fas fa-plus"></i> Buat Tagihan / Invoice
             </button>
         </div>
 
@@ -74,49 +74,67 @@ export async function initSekolah(container) {
 
         <div id="bs-modal" class="bp-modal" style="display:none;">
             <div class="bp-modal-box card">
-                <h3 id="bs-modal-title">Deklarasi Kontrak</h3>
-                <p id="bs-migrate-warn" class="bs-migrate-warn"></p>
+                <h3 id="bs-modal-title">Buat Tagihan / Invoice</h3>
                 <div class="bp-form-grid">
                     <label>Kelas
                         <select id="bs-f-class" class="bp-input"></select>
                     </label>
-                    <label>Label periode
-                        <input id="bs-f-label" class="bp-input" placeholder="mis. Agustus / Semester 1">
+                    <label>Periode / Keterangan
+                        <input id="bs-f-label" class="bp-input" placeholder="mis. September 2026 / Semester Ganjil">
+                    </label>
+                    <label>Jumlah Siswa Aktif
+                        <input id="bs-f-anak" type="number" class="bp-input" min="1" required>
+                    </label>
+                    <label>Jumlah Pertemuan
+                        <input id="bs-f-jumlah" type="number" class="bp-input" min="1" required>
+                    </label>
+                    <label>Tarif per Siswa per Pertemuan (Rp)
+                        <input id="bs-f-price" type="number" class="bp-input" min="0" required>
                     </label>
                     <div style="grid-column:1/-1;">
-                        <span style="font-size:.8rem;font-weight:700;color:#475569;display:block;margin-bottom:6px;">Cara menentukan periode tagihan</span>
-                        <div class="bs-mode-seg" id="bs-mode-seg">
-                            <button type="button" class="bs-mode-btn active" data-bs-mode="range">
-                                <i class="fas fa-calendar-alt"></i> Rentang Tanggal</button>
-                            <button type="button" class="bs-mode-btn" data-bs-mode="count">
-                                <i class="fas fa-list-ol"></i> Jumlah Pertemuan</button>
+                        <div style="background:#f1f5f9; padding:12px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
+                            <span style="font-size:0.85rem; color:#475569; font-weight:700;">TOTAL TAGIHAN:</span>
+                            <span id="bs-f-total" style="font-size:1.2rem; font-weight:900; color:#1e3a8a;">Rp 0</span>
                         </div>
                     </div>
-                    <label id="bs-f-mulai-wrap">Pertemuan Mulai
-                        <select id="bs-f-mulai" class="bp-input"></select>
-                    </label>
-                    <label id="bs-f-akhir-wrap">Pertemuan Akhir
-                        <select id="bs-f-akhir" class="bp-input"></select>
-                    </label>
-                    <label id="bs-f-jumlah-wrap" style="display:none;">Jumlah Pertemuan
-                        <input id="bs-f-jumlah" type="number" class="bp-input" value="4" min="1" required>
-                    </label>
-                    <label>Harga kontrak (Rp)
-                        <input id="bs-f-price" type="number" class="bp-input" value="80000" min="0" required>
-                    </label>
-                    <label>Per berapa sesi
-                        <input id="bs-f-sessions" type="number" class="bp-input" value="4" min="1" required>
-                    </label>
                 </div>
-                <p id="bs-price-hint" style="font-size:.78rem;color:#64748b;margin:0 0 12px;"></p>
-                <p id="bs-meet-hint" style="font-size:.78rem;color:#0e7490;margin:-4px 0 12px;"></p>
-                <div class="bp-form-actions">
-                    <button id="bs-f-save" class="bp-btn-primary">Simpan</button>
+                <div class="bp-form-actions" style="margin-top:16px;">
+                    <button id="bs-f-save" class="bp-btn-primary">Simpan & Terbitkan</button>
                     <button id="bs-f-cancel" class="bp-btn-secondary">Batal</button>
                 </div>
             </div>
         </div>
-    `;
+
+        <div id="bs-modal-bayar" class="bp-modal" style="display:none;">
+            <div class="bp-modal-box card" style="max-width: 400px;">
+                <h3>Update Pembayaran</h3>
+                <div class="bp-form-grid" style="grid-template-columns: 1fr;">
+                    <label>Status Pembayaran
+                        <select id="bs-f-status-lunas" class="bp-input">
+                            <option value="belum_lunas">Belum Lunas</option>
+                            <option value="lunas">Lunas</option>
+                        </select>
+                    </label>
+                    <label>Tanggal Pembayaran
+                        <input type="date" id="bs-f-tanggal-bayar" class="bp-input">
+                    </label>
+                    <label>Metode Pembayaran
+                        <select id="bs-f-metode-bayar" class="bp-input">
+                            <option value="Transfer Bank">Transfer Bank</option>
+                            <option value="Tunai">Tunai</option>
+                            <option value="QRIS">QRIS</option>
+                        </select>
+                    </label>
+                    <label>No. Ref / Bukti
+                        <input type="text" id="bs-f-ref-bayar" class="bp-input" placeholder="Opsional">
+                    </label>
+                </div>
+                <div class="bp-form-actions" style="margin-top:16px;">
+                    <button id="bs-f-save-bayar" class="bp-btn-primary">Update</button>
+                    <button id="bs-f-cancel-bayar" class="bp-btn-secondary">Batal</button>
+                </div>
+            </div>
+        </div>`;
 
     document.getElementById('bs-add').onclick = openDeclare;
     document.getElementById('bs-f-cancel').onclick = closeModal;
@@ -509,50 +527,8 @@ async function loadClassData() {
 }
 
 // ==========================================
-// 5. MODAL CONTROLLERS (CRUD)
+// 5. MODAL CONTROLLERS (CRUD) & PEMBAYARAN
 // ==========================================
-// --- Pertemuan utk modal (sumber pilihan Mulai/Akhir) ---
-let modalMeetings = [];      // [{id, tanggal}] urut tanggal
-let contractDateMode = 'range'; // cara memilih periode di modal: 'range' | 'count'
-let selMulaiTgl = null;      // snapshot tanggal (fallback bila pertemuan dihapus)
-let selAkhirTgl = null;
-
-async function fetchMeetings(classId) {
-    const { data } = await supabase.from('pertemuan_kelas')
-        .select('id, tanggal')
-        .eq('class_id', classId)
-        .order('tanggal');
-    return data || [];
-}
-
-// Deteksi apakah tabel kontrak sudah punya kolom jumlah_pertemuan (hasil migrasi).
-let schemaHasJumlah = null;   // null = belum diperiksa
-async function ensureJumlahKolom() {
-    if (schemaHasJumlah !== null) return schemaHasJumlah;
-    try {
-        const { error } = await supabase.from('billing_periods_sekolah')
-            .select('jumlah_pertemuan').limit(1);
-        schemaHasJumlah = !error;
-    } catch (e) {
-        schemaHasJumlah = false;
-    }
-    return schemaHasJumlah;
-}
-
-// Deteksi apakah tabel invoice sudah punya kolom status pembayaran (hasil migrasi).
-let schemaHasPayment = null;   // null = belum diperiksa
-async function ensurePaymentKolom() {
-    if (schemaHasPayment !== null) return schemaHasPayment;
-    try {
-        const { error } = await supabase.from('invoices_sekolah')
-            .select('status_lunas').limit(1);
-        schemaHasPayment = !error;
-    } catch (e) {
-        schemaHasPayment = false;
-    }
-    return schemaHasPayment;
-}
-
 function fillClassSelect() {
     const sel = document.getElementById('bs-f-class');
     const schoolClasses = classesCache.filter(c => c.school_id === activeSchoolId);
@@ -561,207 +537,56 @@ function fillClassSelect() {
     return sel;
 }
 
-function populateMeetingSelects(mulaiId, akhirId) {
-    const opts = modalMeetings.map((m, i) =>
-        `<option value="${m.id}">P${i + 1} · ${fmtDate(m.tanggal)}</option>`).join('');
-    const s = document.getElementById('bs-f-mulai');
-    const e = document.getElementById('bs-f-akhir');
-    s.innerHTML = opts;
-    e.innerHTML = opts;
-    // preselect: pakai id tersimpan bila masih ada, fallback posisi default
-    if (mulaiId && modalMeetings.some(m => m.id === mulaiId)) s.value = mulaiId;
-    else s.selectedIndex = 0;
-    if (akhirId && modalMeetings.some(m => m.id === akhirId)) e.value = akhirId;
-    else e.selectedIndex = Math.min(modalMeetings.length - 1, s.selectedIndex + 3); // kebiasaan per-4-sesi
-    syncTanggalFromSelects();
-    refreshMeetHint();
+function calcModalTotal() {
+    const anak = Number(document.getElementById('bs-f-anak').value) || 0;
+    const jumlah = Number(document.getElementById('bs-f-jumlah').value) || 0;
+    const price = Number(document.getElementById('bs-f-price').value) || 0;
+    document.getElementById('bs-f-total').innerText = rupiah(anak * jumlah * price);
 }
 
-function syncTanggalFromSelects() {
-    const s = document.getElementById('bs-f-mulai').value;
-    const e = document.getElementById('bs-f-akhir').value;
-    selMulaiTgl = modalMeetings.find(m => m.id === s)?.tanggal || null;
-    selAkhirTgl = modalMeetings.find(m => m.id === e)?.tanggal || null;
-}
-
-// --- Proyeksi tanggal akhir saat jumlah pertemuan > yg tercatat (bayar di muka) ---
-function meetingGapDays() {
-    const gaps = [];
-    for (let i = 1; i < modalMeetings.length; i++) {
-        gaps.push((new Date(modalMeetings[i].tanggal + 'T00:00:00') - new Date(modalMeetings[i - 1].tanggal + 'T00:00:00')) / 86400000);
-    }
-    if (!gaps.length) return 7;                       // default mingguuan
-    gaps.sort((a, b) => a - b);
-    const mid = Math.floor(gaps.length / 2);
-    const median = gaps.length % 2 ? gaps[mid] : (gaps[mid - 1] + gaps[mid]) / 2;
-    return Math.max(1, Math.round(median));
-}
-
-function projectedEndDate(jumlah, mulaiIdx) {
-    const avail = Math.min(jumlah, modalMeetings.length - mulaiIdx); // pertemuan yg sudah tercatat
-    const last = modalMeetings[mulaiIdx + avail - 1].tanggal;
-    const extra = jumlah - avail;                     // sisa yg belum tercatat
-    if (extra <= 0) return last;
-    const d = new Date(last + 'T00:00:00');
-    d.setDate(d.getDate() + meetingGapDays() * extra);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-// --- Helper mode "Jumlah Pertemuan" ---
-function applyDateModeUI() {
-    const akhirWrap = document.getElementById('bs-f-akhir-wrap');
-    const jumlahWrap = document.getElementById('bs-f-jumlah-wrap');
-    if (akhirWrap) akhirWrap.style.display = contractDateMode === 'range' ? '' : 'none';
-    if (jumlahWrap) jumlahWrap.style.display = contractDateMode === 'count' ? '' : 'none';
-    document.querySelectorAll('#bs-mode-seg .bs-mode-btn').forEach(b =>
-        b.classList.toggle('active', b.dataset.bsMode === contractDateMode));
-}
-
-function syncJumlahFromRange() {
-    const i1 = modalMeetings.findIndex(m => m.id === document.getElementById('bs-f-mulai').value);
-    const i2 = modalMeetings.findIndex(m => m.id === document.getElementById('bs-f-akhir').value);
-    const el = document.getElementById('bs-f-jumlah');
-    if (i1 > -1 && i2 > -1 && el) el.value = Math.abs(i2 - i1) + 1;
-}
-
-function syncEndFromJumlah() {
-    const mulaiId = document.getElementById('bs-f-mulai').value;
-    const jumlahEl = document.getElementById('bs-f-jumlah');
-    const endSel = document.getElementById('bs-f-akhir');
-    if (!jumlahEl || !endSel || !endSel.options.length) return;
-    const i1 = modalMeetings.findIndex(m => m.id === mulaiId);
-    if (i1 === -1) return;
-    const jumlah = Math.max(1, Number(jumlahEl.value) || 1);
-    const sisa = modalMeetings.length - i1;
-    if (jumlah <= sisa) {
-        endSel.value = modalMeetings[i1 + jumlah - 1].id; // auto-set Pertemuan Akhir
-    } else {
-        // Pertemuan ke-N belum tercatat (kasus bayar di muka):
-        // pertahankan pilihan pertemuan terakhir; tanggal akhir diproyeksikan saat simpan.
-        endSel.value = modalMeetings[modalMeetings.length - 1].id;
-    }
-}
-
-function setDateMode(mode) {
-    contractDateMode = mode;
-    applyDateModeUI();
-    if (mode === 'count') syncEndFromJumlah();
-    else syncJumlahFromRange();
-    refreshMeetHint();
-}
-
-// Tampilkan peringatan bila DB belum punya kolom jumlah_pertemuan (hasil migrasi)
-async function refreshMigrateWarn() {
-    const el = document.getElementById('bs-migrate-warn');
-    if (!el) return;
-    const has = await ensureJumlahKolom();
-    if (has) { el.style.display = 'none'; el.innerHTML = ''; return; }
-    el.style.display = 'block';
-    el.innerHTML = '⚠️ Database belum punya kolom <b>jumlah_pertemuan</b>. ' +
-        'Jalankan <code>migrations/2026-09-05-billing-sekolah-jumlah-pertemuan.sql</code> ' +
-        'di Supabase SQL Editor, lalu muat ulang (Ctrl+F5). ' +
-        'Tanpa ini, jumlah pertemuan yang dikontrak (mis. 4 padahal baru 3 tercatat) <b>tidak bisa disimpan</b>.';
-}
-
-function refreshMeetHint() {
-    // Mode Jumlah Pertemuan: tampilkan rentang tanggal hasil hitung otomatis
-    if (contractDateMode === 'count') {
-        const hintEl = document.getElementById('bs-meet-hint');
-        if (!hintEl) return;
-        const mulaiId = document.getElementById('bs-f-mulai').value;
-        const jumlah = Math.max(1, Number(document.getElementById('bs-f-jumlah')?.value) || 1);
-        const i1 = modalMeetings.findIndex(m => m.id === mulaiId);
-        if (i1 === -1) { hintEl.textContent = ''; return; }
-        const iEnd = i1 + jumlah - 1;
-        if (iEnd < modalMeetings.length) {
-            hintEl.textContent = `✓ ${jumlah} pertemuan akan ditagihkan — ${fmtDate(modalMeetings[i1].tanggal)} s/d ${fmtDate(modalMeetings[iEnd].tanggal)}.`;
-        } else {
-            const sisa = modalMeetings.length - i1;
-            const projEnd = projectedEndDate(jumlah, i1);
-            hintEl.textContent = `✓ ${jumlah} pertemuan direncanakan (baru ${sisa} tercatat) — periode s/d perkiraan ${fmtDate(projEnd)}.`;
-        }
-        return;
-    }
-    const i1 = modalMeetings.findIndex(m => m.id === document.getElementById('bs-f-mulai').value);
-    const i2 = modalMeetings.findIndex(m => m.id === document.getElementById('bs-f-akhir').value);
-    const hint = document.getElementById('bs-meet-hint');
-    if (!hint) return;
-    if (i1 === -1 || i2 === -1) { hint.textContent = ''; return; }
-    let a = i1, b = i2;
-    if (a > b) [a, b] = [b, a];
-    hint.textContent = `✓ ${b - a + 1} pertemuan akan ditagihkan`;
-}
-
-function openDeclare() {
+async function openDeclare() {
     editingId = null;
     editingContract = null;
-    document.getElementById('bs-modal-title').textContent = 'Deklarasi Kontrak';
+    document.getElementById('bs-modal-title').textContent = 'Buat Tagihan / Invoice';
     const sel = fillClassSelect();
     sel.disabled = false;
     sel.value = activeClassId || '';
     document.getElementById('bs-f-label').value = '';
-    document.getElementById('bs-f-price').value = 80000;
-    document.getElementById('bs-f-sessions').value = 4;
-    document.getElementById('bs-f-jumlah').value = 4;
-    updatePriceHint();
-    contractDateMode = 'range';   // deklarasi baru default: mode rentang tanggal
-
-    // Ambil daftar pertemuan aktual kelas aktif → jadi pilihan Mulai/Akhir
-    modalMeetings = [];
-    selMulaiTgl = selAkhirTgl = null;
+    document.getElementById('bs-f-anak').value = '';
+    document.getElementById('bs-f-jumlah').value = '';
+    document.getElementById('bs-f-price').value = '';
+    calcModalTotal();
     document.getElementById('bs-modal').style.display = 'block';
 
-    (async () => {
-        modalMeetings = await fetchMeetings(sel.value);
-        populateMeetingSelects();
-        applyDateModeUI();
-        await refreshMigrateWarn();
-    })();
+    // Auto-fill defaults based on selected class
+    if (activeClassId) {
+        sel.dispatchEvent(new Event('change'));
+    }
 }
 
 async function openEditContract(id) {
     const { data: bp } = await supabase.from('billing_periods_sekolah').select('*').eq('id', id).single();
     if (!bp) return alert('Kontrak tidak ditemukan.');
     editingId = bp.id;
-    editingContract = bp;   // simpan snapshot (termasuk school_id) utk fallback save
-    document.getElementById('bs-modal-title').textContent = `Edit Kontrak · ${bp.periode_label || bp.start_date}`;
+    editingContract = bp;
+    document.getElementById('bs-modal-title').textContent = `Edit Tagihan · ${bp.periode_label || bp.start_date}`;
     const sel = fillClassSelect();
-    // pastikan option kelas kontrak ini tersedia walau kelasnya sudah non-aktif
     if (!sel.querySelector(`option[value="${bp.class_id}"]`)) {
         sel.insertAdjacentHTML('beforeend', `<option value="${bp.class_id}">(kelas non-aktif)</option>`);
     }
     sel.value = bp.class_id;
-    sel.disabled = true; // kelas tidak diubah saat edit
+    sel.disabled = true; 
     document.getElementById('bs-f-label').value = bp.periode_label || '';
-    document.getElementById('bs-f-price').value = bp.contract_price;
-    document.getElementById('bs-f-sessions').value = bp.contract_sessions;
-    updatePriceHint();
+    
+    // Get existing invoice data
+    const { data: inv } = await supabase.from('invoices_sekolah').select('*').eq('period_id', id).single();
+    
+    document.getElementById('bs-f-anak').value = inv ? inv.jumlah_anak : '';
+    document.getElementById('bs-f-jumlah').value = inv ? inv.jumlah_pertemuan : bp.contract_sessions;
+    document.getElementById('bs-f-price').value = inv ? inv.price_per_session : (bp.contract_price / bp.contract_sessions);
+    
+    calcModalTotal();
     document.getElementById('bs-modal').style.display = 'block';
-
-    // Snapshot tanggal tersimpan sebagai fallback (jika pertemuan batas sudah dihapus)
-    selMulaiTgl = bp.start_date;
-    selAkhirTgl = bp.end_date;
-    modalMeetings = [];
-    document.getElementById('bs-f-mulai').innerHTML = '<option value="">memuat...</option>';
-    document.getElementById('bs-f-akhir').innerHTML = '<option value="">memuat...</option>';
-
-    modalMeetings = await fetchMeetings(bp.class_id);
-    const startId = modalMeetings.find(m => m.tanggal === bp.start_date)?.id || '';
-    const endId   = modalMeetings.find(m => m.tanggal === bp.end_date)?.id || '';
-    populateMeetingSelects(startId, endId);
-
-    // Jika kontrak menyimpan jumlah_pertemuan (kolom hasil migrasi), buka di mode
-    // "Jumlah Pertemuan" agar nilainya terlihat dan mudah diubah (mis. 3 -> 4).
-    const hasJumlah = bp.jumlah_pertemuan != null && Number(bp.jumlah_pertemuan) > 0;
-    contractDateMode = hasJumlah ? 'count' : 'range';
-    applyDateModeUI();
-    if (hasJumlah) {
-        document.getElementById('bs-f-jumlah').value = Number(bp.jumlah_pertemuan);
-        syncEndFromJumlah();
-    } else {
-        syncJumlahFromRange();   // prefill jumlah bila user pindah ke mode count
-    }
-    await refreshMigrateWarn();
 }
 
 function closeModal() {
@@ -769,218 +594,126 @@ function closeModal() {
     editingId = null;
     editingContract = null;
 }
-
 window.bsEditContract = openEditContract;
 
-function updatePriceHint() {
-    const price = Number(document.getElementById('bs-f-price')?.value) || 0;
-    const sessions = Math.max(1, Number(document.getElementById('bs-f-sessions')?.value) || 4);
-    const hint = document.getElementById('bs-price-hint');
-    if (hint) hint.textContent = `= ${rupiah(Math.round(price / sessions * 100) / 100)} per sesi`;
-}
-
 async function saveContract() {
-    const mulaiId = document.getElementById('bs-f-mulai').value;
-    let akhirId = document.getElementById('bs-f-akhir').value;
-
-    // Mode "Jumlah Pertemuan": akhir dihitung otomatis = mulai + (jumlah-1) pertemuan.
-    // Bila jumlah melebihi pertemuan yang sudah tercatat (kasus bayar di muka),
-    // tanggal akhir periode diproyeksikan mengikuti jeda jadwal agar pertemuan
-    // yang belum tercatat tetap masuk dalam rentang periode.
-    let endDateOverride = null;
-    if (contractDateMode === 'count') {
-        const jumlah = Math.max(1, Number(document.getElementById('bs-f-jumlah').value) || 1);
-        const mulaiIdx = modalMeetings.findIndex(m => m.id === mulaiId);
-        if (mulaiIdx === -1) return alert('Pilih pertemuan Mulai terlebih dahulu!');
-        const endIdx = mulaiIdx + jumlah - 1;
-        if (endIdx < modalMeetings.length) {
-            akhirId = modalMeetings[endIdx].id;
-            document.getElementById('bs-f-akhir').value = akhirId; // sinkronkan UI
-        } else {
-            const sisa = modalMeetings.length - mulaiIdx;
-            endDateOverride = projectedEndDate(jumlah, mulaiIdx);
-            document.getElementById('bs-f-akhir').value = modalMeetings[modalMeetings.length - 1].id;
-            if (!confirm(`Anda mendeklarasikan ${jumlah} pertemuan, tapi baru ${sisa} yang tercatat.\nTanggal akhir periode diproyeksikan ke ${fmtDate(endDateOverride)} mengikuti jadwal kelas.\n\nLanjutkan?`)) return;
-        }
-    }
-
-    // school_id WAJIB (NOT NULL di DB) — ambil dari kelas terpilih,
-    // fallback ke kontrak yang sedang diedit (kasus kelas non-aktif)
     const classId = document.getElementById('bs-f-class').value;
     const cls = classesCache.find(c => c.id === classId);
     const schoolId = cls?.school_id || editingContract?.school_id || null;
+    const label = document.getElementById('bs-f-label').value || null;
+    const anak = Number(document.getElementById('bs-f-anak').value) || 0;
+    const jumlah = Number(document.getElementById('bs-f-jumlah').value) || 0;
+    const price = Number(document.getElementById('bs-f-price').value) || 0;
+    const total = anak * jumlah * price;
 
-    // Jumlah pertemuan yang DIKONTAK — bisa melebihi realisasi utk kasus
-    // sekolah bayar di muka (mis. kontrak 4, baru 3 pertemuan tercatat).
-    let jumlahKontrak = null;
-    if (contractDateMode === 'count') {
-        jumlahKontrak = Math.max(1, Number(document.getElementById('bs-f-jumlah').value) || 1);
-    } else {
-        const m1 = modalMeetings.findIndex(m => m.id === mulaiId);
-        const m2 = modalMeetings.findIndex(m => m.id === akhirId);
-        // Jangan timpa jumlah tersimpan bila user hanya mengedit hal lain
-        // (mis. harga) tanpa mengubah rentang tanggal.
-        const tglAwalSel  = m1 > -1 ? modalMeetings[m1].tanggal : null;
-        const tglAkhirSel = m2 > -1 ? modalMeetings[m2].tanggal : null;
-        const rangeChanged = (editingContract &&
-            (tglAwalSel !== (editingContract.start_date || null) ||
-             tglAkhirSel !== (editingContract.end_date || null)));
-        if (m1 > -1 && m2 > -1 && rangeChanged) {
-            jumlahKontrak = Math.abs(m2 - m1) + 1;   // rentang diubah -> hitung ulang
-        } else if (editingContract && Number(editingContract.jumlah_pertemuan) > 0) {
-            jumlahKontrak = Number(editingContract.jumlah_pertemuan); // pertahankan tersimpan
-        } else if (m1 > -1 && m2 > -1) {
-            jumlahKontrak = Math.abs(m2 - m1) + 1;   // deklarasi baru (non-edit)
-        }
-    }
+    if (!classId) return alert('Pilih kelas!');
+    if (!schoolId) return alert('Sekolah untuk kelas ini tidak ditemukan.');
+    if (anak <= 0 || jumlah <= 0 || price <= 0) return alert('Jumlah siswa, pertemuan, dan tarif harus lebih dari 0!');
 
-    const payload = {
+    // Note: since we bypass "dates", we just use today's date for start/end to satisfy DB constraints
+    const today = new Date().toISOString().split('T')[0];
+    
+    const bpPayload = {
         class_id: classId,
         school_id: schoolId,
-        periode_label: document.getElementById('bs-f-label').value || null,
-        // Tanggal diturunkan dari PERTEMUAN yang dipilih (bukan date picker).
-        // Fallback ke snapshot tersimpan bila pertemuan batas sudah dihapus.
-        start_date: modalMeetings.find(m => m.id === mulaiId)?.tanggal || selMulaiTgl,
-        end_date: endDateOverride || modalMeetings.find(m => m.id === akhirId)?.tanggal || selAkhirTgl,
-        contract_price: Number(document.getElementById('bs-f-price').value) || 0,
-        contract_sessions: Math.max(1, Number(document.getElementById('bs-f-sessions').value) || 4),
+        periode_label: label,
+        start_date: editingContract ? editingContract.start_date : today,
+        end_date: editingContract ? editingContract.end_date : today,
+        contract_price: price * jumlah, // legacy schema mapping
+        contract_sessions: jumlah,
+        jumlah_pertemuan: jumlah // new schema
     };
-    // Hanya kirim kolom jumlah_pertemuan bila schema sudah punya (hasil migrasi).
-    // Di mode "Jumlah Pertemuan", jika kolom belum ada, blokir simpan agar tidak
-    // diam-diam menyimpan sebagai 3 (fallback realisasi).
-    const hasKolom = await ensureJumlahKolom();
-    if (contractDateMode === 'count') {
-        if (!hasKolom) {
-            return alert('Database belum punya kolom "jumlah_pertemuan".\n\n' +
-                'Jalankan file migrations/2026-09-05-billing-sekolah-jumlah-pertemuan.sql ' +
-                'di Supabase SQL Editor lalu muat ulang halaman (Ctrl+F5).');
-        }
-        payload.jumlah_pertemuan = jumlahKontrak;
-    } else if (hasKolom && jumlahKontrak != null) {
-        payload.jumlah_pertemuan = jumlahKontrak;
-    }
 
-    if (!payload.class_id) return alert('Pilih kelas!');
-    if (!payload.school_id) return alert('Sekolah untuk kelas ini tidak ditemukan.');
-    if (!payload.start_date || !payload.end_date) return alert('Pilih pertemuan Mulai & Akhir terlebih dahulu!');
-    if (payload.end_date < payload.start_date) return alert('Tanggal akhir tidak boleh sebelum tanggal mulai!');
-    if (payload.contract_price <= 0) return alert('Harga kontrak harus lebih dari 0!');
-
-    // VALIDASI TUMPANG TINDIH dengan siklus lain di kelas yang sama
-    let q = supabase.from('billing_periods_sekolah')
-        .select('id, periode_label, start_date, end_date')
-        .eq('class_id', payload.class_id);
-    if (editingId) q = q.neq('id', editingId);
-    const { data: conflicts } = await q
-        .lt('start_date', payload.end_date)
-        .gt('end_date', payload.start_date);
-
-    if (conflicts && conflicts.length) {
-        const c = conflicts[0];
-        return alert(`⚠️ Rentang bertabrakan dengan siklus "${c.periode_label || c.start_date}" (${c.start_date} s/d ${c.end_date}).\nPakai rentang tanggal yang tidak tumpang tindih agar pertemuan tidak terhitung ganda.`);
-    }
-
-    let error = null;
+    let periodId = editingId;
+    
     if (editingId) {
-        const { error: err } = await supabase.from('billing_periods_sekolah').update(payload).eq('id', editingId);
-        error = err;
+        const { error } = await supabase.from('billing_periods_sekolah').update(bpPayload).eq('id', editingId);
+        if (error) return alert('Gagal update periode: ' + error.message);
     } else {
-        const { error: err } = await supabase.from('billing_periods_sekolah').insert(payload);
-        error = err;
+        const { data, error } = await supabase.from('billing_periods_sekolah').insert(bpPayload).select('id').single();
+        if (error) return alert('Gagal buat periode: ' + error.message);
+        periodId = data.id;
     }
 
-    if (error) return alert('Gagal simpan: ' + error.message);
+    const invPayload = {
+        period_id: periodId,
+        school_id: schoolId,
+        class_id: classId,
+        periode_label: label,
+        jumlah_anak: anak,
+        jumlah_pertemuan: jumlah,
+        price_per_session: price,
+        total: total
+    };
 
-    // EDIT BERPENGARUH KE DOKUMEN TERKAIT:
-    // jika kontrak sudah punya invoice, snapshot invoice ikut diperbarui
-    // (jumlah pertemuan, anak, harga/sesi, total, periode) dari kontrak terbaru,
-    // sehingga invoice & kwitansi yang dicetak selalu memakai nilai baru.
     if (editingId) {
-        const { data: existingInv } = await supabase.from('invoices_sekolah')
-            .select('id').eq('period_id', editingId).maybeSingle();
+        const { data: existingInv } = await supabase.from('invoices_sekolah').select('id').eq('period_id', editingId).maybeSingle();
         if (existingInv) {
-            const upd = await computeInvoiceValues(editingId);
-            if (upd) {
-                const { error: errUpd } = await supabase.from('invoices_sekolah')
-                    .update(upd).eq('period_id', editingId);
-                if (!errUpd) {
-                    alert('Kontrak diperbarui.\nInvoice yang sudah terbit ikut diperbarui:\n' +
-                        rupiah(upd.total) + ' (' + upd.jumlah_pertemuan + ' pertemuan x ' + upd.jumlah_anak + ' anak).\n' +
-                        'Buka kembali invoice/kwitansi untuk melihat nilai terbaru.');
-                }
-            }
+            const { error } = await supabase.from('invoices_sekolah').update(invPayload).eq('period_id', editingId);
+            if (error) return alert('Gagal update invoice: ' + error.message);
+        } else {
+            const { error } = await supabase.from('invoices_sekolah').insert(invPayload);
+            if (error) return alert('Gagal terbitkan invoice: ' + error.message);
         }
+    } else {
+        const { error } = await supabase.from('invoices_sekolah').insert(invPayload);
+        if (error) return alert('Gagal terbitkan invoice: ' + error.message);
     }
 
     closeModal();
-    if (payload.class_id) await activateClass(payload.class_id);
+    if (classId) await activateClass(classId);
 }
 
-// ==========================================
-// 6. GENERATE INVOICE (snapshot) & HAPUS
-// ==========================================
-// Hitung nilai invoice dari KONTRAK (dipakai saat terbit & saat edit kontrak).
-// Jumlah pertemuan = jumlah yang DIKONTAK (bila kolom tersedia), fallback ke
-// realisasi pertemuan tercatat dalam rentang tanggal.
-async function computeInvoiceValues(periodId) {
-    const { data: bp } = await supabase.from('billing_periods_sekolah')
-        .select('*').eq('id', periodId).single();
-    if (!bp) return null;
+let bayarInvoiceId = null;
 
-    const [{ count: anak }, { data: meetings }] = await Promise.all([
-        supabase.from('students').select('id', { count: 'exact', head: true })
-            .eq('class_id', bp.class_id).eq('is_active', true),
-        supabase.from('pertemuan_kelas').select('id, tanggal')
-            .eq('class_id', bp.class_id)
-            .gte('tanggal', bp.start_date).lte('tanggal', bp.end_date)
-    ]);
+async function updateBayar(invId) {
+    const { data: inv } = await supabase.from('invoices_sekolah').select('*').eq('id', invId).single();
+    if (!inv) return alert('Invoice tidak ditemukan.');
+    
+    bayarInvoiceId = invId;
+    document.getElementById('bs-f-status-lunas').value = inv.status_lunas === 'lunas' ? 'lunas' : 'belum_lunas';
+    document.getElementById('bs-f-tanggal-bayar').value = inv.paid_at ? inv.paid_at.split('T')[0] : new Date().toISOString().split('T')[0];
+    document.getElementById('bs-f-metode-bayar').value = inv.payment_method || 'Transfer Bank';
+    document.getElementById('bs-f-ref-bayar').value = inv.payment_ref || '';
+    
+    document.getElementById('bs-modal-bayar').style.display = 'block';
+}
+window.bsUpdateBayar = updateBayar;
 
-    const pps = Math.round((Number(bp.contract_price) / Math.max(1, bp.contract_sessions)) * 100) / 100;
-    const jumlahPertemuan = (bp.jumlah_pertemuan != null && Number(bp.jumlah_pertemuan) > 0)
-        ? Number(bp.jumlah_pertemuan)
-        : (meetings || []).length;
-    const total = Math.round(pps * jumlahPertemuan * (anak || 0) * 100) / 100;
-
-    return {
-        period_id: periodId,
-        school_id: bp.school_id,
-        class_id: bp.class_id,
-        periode_label: bp.periode_label,
-        jumlah_anak: anak || 0,
-        jumlah_pertemuan: jumlahPertemuan,
-        price_per_session: pps,
-        total
-    };
+function closeBayarModal() {
+    document.getElementById('bs-modal-bayar').style.display = 'none';
+    bayarInvoiceId = null;
 }
 
-async function generateInvoice(periodId) {
-    const { data: bp } = await supabase.from('billing_periods_sekolah')
-        .select('*').eq('id', periodId).single();
-    if (!bp) return alert('Kontrak tidak ditemukan.');
-
-    const { data: exist } = await supabase.from('invoices_sekolah')
-        .select('id').eq('period_id', periodId).maybeSingle();
-    if (exist) return alert('Invoice untuk siklus ini sudah pernah diterbitkan.');
-
-    const inv = await computeInvoiceValues(periodId);
-    if (!inv) return alert('Gagal menghitung nilai invoice.');
-
-    if (!confirm(`Terbitkan invoice?\n\nAnak        : ${inv.jumlah_anak}\nPertemuan   : ${inv.jumlah_pertemuan}\nHarga/sesi  : ${rupiah(inv.price_per_session)}\nTOTAL       : ${rupiah(inv.total)}\n\nLanjutkan?`)) return;
-
-    const { error } = await supabase.from('invoices_sekolah').insert(inv);
-
-    if (error) return alert('Gagal terbitkan invoice: ' + error.message);
-    await loadClassData();
-    await openInvoiceView(periodId);   // langsung tampilkan hasilnya
+async function saveBayar() {
+    if (!bayarInvoiceId) return;
+    
+    const status = document.getElementById('bs-f-status-lunas').value;
+    let payload = { status_lunas: status };
+    
+    if (status === 'lunas') {
+        let tgl = document.getElementById('bs-f-tanggal-bayar').value;
+        if (!tgl) tgl = new Date().toISOString().split('T')[0];
+        payload.paid_at = tgl + 'T12:00:00Z'; // default noon UTC to avoid timezone boundary issues
+        payload.payment_method = document.getElementById('bs-f-metode-bayar').value;
+        payload.payment_ref = document.getElementById('bs-f-ref-bayar').value;
+    } else {
+        payload.paid_at = null;
+        payload.payment_method = null;
+        payload.payment_ref = null;
+    }
+    
+    const { error } = await supabase.from('invoices_sekolah').update(payload).eq('id', bayarInvoiceId);
+    if (error) return alert('Gagal update pembayaran: ' + error.message);
+    
+    closeBayarModal();
+    if (activeClassId) await loadClassData();
 }
-window.bsGenerateInvoice = generateInvoice;
 
 async function deleteContract(id) {
     const { data: bp } = await supabase.from('billing_periods_sekolah').select('*').eq('id', id).single();
     if (!bp) return alert('Kontrak tidak ditemukan.');
-    const hasInvoice = !!(await supabase.from('invoices_sekolah').select('id').eq('period_id', id).maybeSingle()).data;
-    const extra = hasInvoice ? '\n\nPERHATIAN: Invoice yang sudah terbit akan IKUT TERHAPUS.' : '';
-    if (!confirm(`Hapus kontrak "${(bp.periode_label || bp.start_date)}" permanen?${extra}`)) return;
+    if (!confirm(`Hapus tagihan "${(bp.periode_label || bp.start_date)}" permanen?\nIni juga akan menghapus invoice dan kwitansi terkait.`)) return;
 
     const { error } = await supabase.from('billing_periods_sekolah').delete().eq('id', id);
     if (error) return alert('Gagal hapus: ' + error.message);
