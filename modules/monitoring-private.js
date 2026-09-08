@@ -95,9 +95,11 @@ export async function init(canvas) {
                                     <option value="2">2 Sesi</option>
                                 </select>
                             </div>
-                            <div class="form-group full">
+                            <div class="form-group full" style="position:relative;">
                                 <label>📚 Materi (Topik)</label>
-                                <input type="text" id="materiUtama" class="input-modern" placeholder="Contoh: Logika Algoritma">
+                                <input type="text" id="materiUtama" class="input-modern" placeholder="Cari/Ketik materi..." autocomplete="off">
+                                <div id="materiSuggestionBox" class="materi-suggestion-box" style="display:none;"></div>
+                                <div id="materiStatusBadge" class="materi-status hidden"></div>
                             </div>
                         </div>
                         <div class="form-actions" style="margin-top:15px;">
@@ -269,6 +271,27 @@ function injectStyles() {
         .target-item-row { display: flex; justify-content: space-between; align-items: center; background: white; padding: 10px; margin-bottom: 8px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); font-size: 0.95rem; }
 
         @media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } .form-group.full { grid-column: span 1; } }
+
+        /* --- SUGGESTION MATERI (mirip absensi-harian) --- */
+        .materi-suggestion-box {
+            position: absolute; top: 100%; left: 0; right: 0; z-index: 60;
+            background: white; border: 1px solid #e2e8f0; border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.12); overflow: hidden; margin-top: 4px;
+        }
+        .materi-sugg-header { padding: 7px 12px; font-size: 0.68rem; color:#64748b; background:#f8fafc; border-bottom:1px solid #eef2f7; text-transform:uppercase; letter-spacing:0.4px; }
+        .materi-sugg-item { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:11px 12px; border-bottom:1px solid #f1f5f9; cursor:pointer; transition:background 0.15s; font-size:0.85rem; }
+        .materi-sugg-item:last-child { border-bottom:none; }
+        .materi-sugg-item:hover, .materi-sugg-item:active { background:#eff6ff; }
+        .materi-sugg-title { color:#1e293b; font-weight:500; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .materi-sugg-badge { font-size:0.62rem; font-weight:700; color:#2563eb; background:#dbeafe; padding:3px 8px; border-radius:20px; white-space:nowrap; flex-shrink:0; }
+        .materi-sugg-hint { padding:10px 12px; font-size:0.75rem; color:#94a3b8; }
+
+        /* Badge Status Materi (BARU / TERDAFTAR) */
+        .materi-status { display:inline-flex; align-items:center; gap:6px; margin-top:6px; padding:5px 12px; border-radius:20px; font-size:0.68rem; font-weight:700; letter-spacing:0.4px; text-transform:uppercase; }
+        .materi-status.is-new { background:#fef3c7; color:#b45309; border:1px solid #fde68a; }
+        .materi-status.is-existing { background:#dcfce7; color:#15803d; border:1px solid #bbf7d0; }
+        .materi-status.hidden { display:none !important; }
+
     `;
     document.head.appendChild(style);
 }
@@ -314,7 +337,44 @@ function setupEventListeners() {
     };
     
     document.getElementById("btnToggleManual").onclick = toggleManualSub;
+
+    // --- MATERI SEARCH / AUTOCOMPLETE ---
+    setupMateriSearch();
 }
+
+function setupMateriSearch() {
+    const materiInput = document.getElementById('materiUtama');
+    const suggBox = document.getElementById('materiSuggestionBox');
+    if (!materiInput || !suggBox) return;
+
+    // Debounce input: query ke DB setelah 300ms berhenti ketik
+    materiInput.addEventListener('input', (e) => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+            const kw = e.target.value.trim();
+            loadMateriPrivateSuggestions(kw);
+            checkMateriPrivateStatus(kw);
+        }, 300);
+    });
+
+    // Tutup suggestion box saat klik di luar area input/box
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('#materiUtama') && !e.target.closest('#materiSuggestionBox')) {
+            suggBox.style.display = 'none';
+        }
+    });
+
+    // Delegasi klik item suggestion (aman untuk judul dengan tanda kutip)
+    suggBox.addEventListener('click', (e) => {
+        const item = e.target.closest('.materi-sugg-item[data-title]');
+        if (!item) return;
+        materiInput.value = item.dataset.title;
+        suggBox.style.display = 'none';
+        checkMateriPrivateStatus(item.dataset.title);
+        materiInput.focus();
+    });
+}
+
 
 // ==========================================
 // 4. DATABASE FUNCTIONS
@@ -360,6 +420,13 @@ async function fetchSubLevels() {
         const badgeContainer = document.getElementById('sub-level-badge-container');
         if (badgeContainer) {
             badgeContainer.innerHTML = subLevelName ? `<span class="level-badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd;">${subLevelName}</span>` : '';
+        }
+
+        // Refresh suggestion materi jika ada keyword yang sudah diketik
+        const kw = document.getElementById('materiUtama')?.value?.trim() || '';
+        if (kw.length >= 2) {
+            loadMateriPrivateSuggestions(kw);
+            checkMateriPrivateStatus(kw);
         }
     };
 }
@@ -806,6 +873,12 @@ function resetToNewMode() {
     document.getElementById('btnTambahLagi').style.display = 'none';
     
     renderTargetListUI();
+
+    // Reset suggestion & badge materi
+    const suggBox = document.getElementById('materiSuggestionBox');
+    if (suggBox) suggBox.style.display = 'none';
+    const badge = document.getElementById('materiStatusBadge');
+    if (badge) { badge.className = 'materi-status hidden'; badge.innerHTML = ''; }
 }
 
 function resetSmartInput() {
@@ -817,6 +890,88 @@ function resetSmartInput() {
     if (subSel) subSel.value = "";
     const container = document.getElementById('subAchContainer');
     if (container) container.style.display = 'none';
+}
+
+// --- MATERI PRIVATE AUTOCOMPLETE FUNCTIONS ---
+
+/**
+ * Query tabel materi_private berdasarkan keyword, level_id, dan sub_level_id.
+ * Menampilkan dropdown suggestion di bawah input #materiUtama.
+ */
+async function loadMateriPrivateSuggestions(kw) {
+    const box = document.getElementById('materiSuggestionBox');
+    if (!box) return;
+
+    if (!levelId) {
+        if (kw.length >= 2) {
+            box.innerHTML = `<div class="materi-sugg-hint"><i class="fas fa-circle-info"></i> Level belum terdeteksi. Coba buka kembali kelas ini.</div>`;
+            box.style.display = 'block';
+        } else {
+            box.style.display = 'none';
+        }
+        return;
+    }
+    if (kw.length < 2) { box.style.display = 'none'; return; }
+
+    let query = supabase.from('materi_private')
+        .select('judul, sub_levels(name)')
+        .eq('level_id', levelId)
+        .ilike('judul', `%${kw}%`)
+        .limit(6);
+    if (subLevelId) query = query.eq('sub_level_id', subLevelId);
+
+    const { data } = await query;
+
+    if (data && data.length) {
+        box.innerHTML = `
+            <div class="materi-sugg-header"><i class="fas fa-layer-group"></i> Saran Materi Private</div>
+            ${data.map(m => `
+                <div class="materi-sugg-item" data-title="${escapeHtml(m.judul)}">
+                    <span class="materi-sugg-title">${escapeHtml(m.judul)}</span>
+                    ${m.sub_levels?.name ? `<span class="materi-sugg-badge">${escapeHtml(m.sub_levels.name)}</span>` : ''}
+                </div>
+            `).join('')}
+        `;
+        box.style.display = 'block';
+    } else {
+        box.innerHTML = `<div class="materi-sugg-hint"><i class="fas fa-plus"></i> Tidak ada yang cocok — akan disimpan sebagai materi <b>BARU</b>.</div>`;
+        box.style.display = 'block';
+    }
+}
+
+/**
+ * Cek apakah judul materi sudah ada di DB (exact match, case-insensitive).
+ * Tampilkan badge BARU atau TERDAFTAR di bawah input.
+ */
+async function checkMateriPrivateStatus(kw) {
+    const badge = document.getElementById('materiStatusBadge');
+    if (!badge) return;
+    if (!kw || kw.length < 2 || !levelId) {
+        badge.className = 'materi-status hidden';
+        badge.innerHTML = '';
+        return;
+    }
+    let q = supabase.from('materi_private')
+        .select('id')
+        .eq('level_id', levelId)
+        .ilike('judul', kw)
+        .limit(1);
+    if (subLevelId) q = q.eq('sub_level_id', subLevelId);
+
+    const { data } = await q;
+    if (data && data.length) {
+        badge.className = 'materi-status is-existing';
+        badge.innerHTML = `<i class="fas fa-circle-check"></i> Materi terdaftar`;
+    } else {
+        badge.className = 'materi-status is-new';
+        badge.innerHTML = `<i class="fas fa-wand-magic-sparkles"></i> Materi Baru — akan dibuat saat disimpan`;
+    }
+}
+
+/** Sanitasi teks sebelum disuntik ke HTML (cegah XSS). */
+function escapeHtml(text) {
+    const NAMES = { 38: 'amp', 60: 'lt', 62: 'gt', 34: 'quot', 39: '#39' };
+    return String(text ?? '').replace(/[&<>"']/g, ch => '&' + NAMES[ch.charCodeAt(0)] + ';');
 }
 
 function setupMainAchSearch() {

@@ -454,8 +454,9 @@ function injectStyles() {
 
         .rpp-preview-card { background: #fafafa; border: 1px solid #e2e8f0; border-radius: 16px; padding: 24px; font-family: 'Poppins', sans-serif; color: #1e293b; }
 
-        /* Kop — khusus tampilan cetak, disembunyikan di layar */
+        /* Kop & Footer — khusus tampilan cetak, disembunyikan di layar */
         .rpp-print-identitas { display: none; }
+        .rpp-print-footer { display: none; }
         .rpp-header-box { text-align: center; border-bottom: 2px solid #cbd5e1; padding-bottom: 16px; margin-bottom: 20px; }
         .rpp-header-box h3 { margin: 0 0 6px 0; font-size: 1.3rem; color: #0f172a; font-weight: 800; }
         .rpp-meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; background: white; padding: 12px 16px; border-radius: 12px; border: 1px solid #e2e8f0; margin-top: 12px; text-align: left; }
@@ -675,6 +676,18 @@ function injectStyles() {
             #gm-print-root .rpp-rubric-table th {
                 text-transform: uppercase;
                 font-size: 9.5pt;
+            }
+
+            /* ====== FOOTER NOTE (hanya tampil saat cetak) ====== */
+            #gm-print-root .rpp-print-footer {
+                display: block !important;
+                margin-top: 24px;
+                padding-top: 10px;
+                border-top: 1px solid #94a3b8;
+                text-align: center;
+                font-size: 8.5pt;
+                color: #64748b;
+                line-height: 1.5;
             }
         }
 
@@ -2136,6 +2149,12 @@ async function openRppReader(id) {
                     <h4><i class="fas fa-table-list"></i> G. RUBRIC PENILAIAN</h4>
                     ${renderRubric(rppData.rubric_penilaian)}
                 </div>
+
+                <!-- FOOTER NOTE — hanya tampil saat cetak -->
+                <div class="rpp-print-footer">
+                    <strong>Robopanda Robotic</strong> &nbsp;·&nbsp; Lesson Plan (RPP) Internal &nbsp;·&nbsp; ${esc(levelName)} — ${esc(m.title || 'Materi Pembelajaran')}<br>
+                    Dicetak pada: ${new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} &nbsp;·&nbsp; Dokumen ini untuk keperluan internal pengajaran
+                </div>
             </div>
         `;
     }
@@ -2271,10 +2290,25 @@ function printRpp() {
     // Paksa reflow sesaat agar browser menyadari elemen baru sebelum print
     void root.offsetHeight;
 
-    window.print();
+    // === Atur nama file PDF (via document.title — dipakai browser sebagai default filename) ===
+    const originalTitle = document.title;
+    if (currentViewingMateri) {
+        const levelName = (currentViewingMateri.levels?.kode || currentViewingMateri.level || 'Umum')
+            .replace(/[/\\?%*:|"<>]/g, '-').trim();
+        const materiTitle = (currentViewingMateri.title || 'Materi')
+            .replace(/[/\\?%*:|"<>]/g, '-').trim();
+        document.title = `RPP - ${levelName} - ${materiTitle}`;
+    }
 
-    // Bersihkan setelah dialog print ditutup
-    root.innerHTML = '';
+    // Restore title setelah dialog print / Save as PDF ditutup
+    const restoreTitle = () => {
+        document.title = originalTitle;
+        root.innerHTML = '';
+        window.removeEventListener('afterprint', restoreTitle);
+    };
+    window.addEventListener('afterprint', restoreTitle);
+
+    window.print();
 }
 
 // ==========================================
