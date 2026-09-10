@@ -14,6 +14,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 let editingPeriodId = null;
 let activeGroupId = null;
 let groupsCache = [];
+let privateView = 'summary';   // tampilan Private: 'summary' | 'rincian'
 
 // ==========================================
 // 1. INITIALIZATION (SHELL: mode Private / Sekolah)
@@ -80,6 +81,13 @@ async function renderPrivate(view) {
                 </button>
             </div>
 
+            <div class="bp-view-switch" id="bp-view-switch" style="margin-bottom:10px;">
+                <button type="button" class="bp-view-btn active" data-bp-view="summary">
+                    <i class="fas fa-table-list"></i> Summary</button>
+                <button type="button" class="bp-view-btn" data-bp-view="rincian">
+                    <i class="fas fa-list"></i> Rincian</button>
+            </div>
+
             <div class="bp-tabs card" id="bp-group-tabs">
                 <div class="bp-tabs-label">GROUP</div>
                 <div class="bp-tabs-list"></div>
@@ -122,6 +130,16 @@ async function renderPrivate(view) {
     document.getElementById('bp-add-period').onclick = openAddPeriod;
     document.getElementById('bp-f-cancel').onclick = closePeriodModal;
     document.getElementById('bp-f-save').onclick = savePeriod;
+
+    // Penghito Summary / Rincian (mirip bg-view-switch di Rekap Guru)
+    document.querySelectorAll('#bp-view-switch .bp-view-btn').forEach(btn => {
+        btn.onclick = () => {
+            privateView = btn.dataset.bpView;
+            document.querySelectorAll('#bp-view-switch .bp-view-btn')
+                .forEach(b => b.classList.toggle('active', b === btn));
+            if (activeGroupId) loadSummary(); // render ulang dengan mode baru
+        };
+    });
 }
 
 // --- MODAL CONTROLLERS ---
@@ -217,6 +235,10 @@ function injectStyles() {
         .bp-btn-delete:hover { background:#fef2f2; }
         .bp-breakdown-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:10px 16px; background:#fff; border-bottom:1px solid #f1f5f9; font-size:0.82rem; color:#475569; }
         .bp-class-chip { display:inline-flex; align-items:center; gap:6px; background:#f0f9ff; color:#0369a1; border:1px solid #bae6fd; padding:3px 10px; border-radius:20px; font-size:0.76rem; font-weight:600; }
+        .bp-view-switch { display:inline-flex; background:#e2e8f0; border-radius:8px; padding:3px; gap:2px; }
+        .bp-view-btn { border:none; background:transparent; color:#475569; font-weight:600; font-size:.8rem; padding:6px 14px; border-radius:6px; cursor:pointer; transition:.12s; }
+        .bp-view-btn:hover { color:#1e293b; }
+        .bp-view-btn.active { background:#1e293b; color:#fff; box-shadow:0 1px 2px rgba(0,0,0,.15); }
     `;
     const style = document.createElement('style');
     style.textContent = css;
@@ -345,29 +367,42 @@ function fmtHari(t) {
 // Tabel rapi daftar pertemuan gabungan seluruh kelas milik group
 // Setiap baris = satu PERTEMUAN; kolom "Sesi" menunjukkan rentang sesi
 // (pertemuan bernilai 2 sesi tampil mis. "3–4"). Info overflow hanya di siklus terakhir.
-function renderGlobalDateTable(sessions, isLastSiklus, overflow) {
+// Mode "rincian" = tambahan kolom Sub-Level & Materi.
+function renderGlobalDateTable(sessions, isLastSiklus, overflow, rincian) {
+    const colCount = rincian ? 8 : 6;
     if (!sessions || sessions.length === 0) {
-        return '<tr><td colspan="6" style="text-align:center; color:#94a3b8; padding:16px;">Belum ada pertemuan pada periode ini.</td></tr>';
+        return `<tr><td colspan="${colCount}" style="text-align:center; color:#94a3b8; padding:16px;">Belum ada pertemuan pada periode ini.</td></tr>`;
     }
 
     let html = sessions.map((s, i) => {
         const span = (s._mulai === s._sampai) ? `${s._mulai}` : `${s._mulai}–${s._sampai}`;
-        const bobot = (Number(s.jumlah_sesi) || 1) > 1
-            ? ` <span class="bp-badge over">×${Number(s.jumlah_sesi)}</span>` : '';
+        const js = Number(s.jumlah_sesi) || 1;
+        let badge = '';
+        if (!s._carry && !s._partial && js > 1) badge += ` <span class="bp-badge over">×${js}</span>`;
+        if (s._carry) badge += ` <span class="bp-badge ok">↪ carry siklus sebelumnya</span>`;
+        if (s._partial) badge += ` <span class="bp-badge over">×${js} · carry +${s._remainder} ke berikut</span>`;
         const levelBadge = s._levelTxt ? ` <span class="bp-level" style="font-size:0.68rem; margin-left:4px;">${escapeHtml(s._levelTxt)}</span>` : '';
+        const subLevelTd = rincian
+            ? `<td>${s._subLevel ? `<span class="bp-level" style="font-size:0.68rem;">${escapeHtml(s._subLevel)}</span>` : '<span style="color:#94a3b8;">—</span>'}</td>`
+            : '';
+        const materiTd = rincian
+            ? `<td style="max-width:220px;">${escapeHtml(s._materi && s._materi !== '—' ? s._materi : '—')}</td>`
+            : '';
         return `<tr>
         <td>${i + 1}</td>
         <td>${fmtTanggal(s.tanggal)}</td>
         <td>${fmtHari(s.tanggal)}</td>
-        <td><strong style="color:#1e293b;">${escapeHtml(s._className)}</strong>${levelBadge}</td>
-        <td><b>${span}</b>${bobot}</td>
+        <td><strong style="color:#1e293b;">${escapeHtml(s._className || 'Kelas Private')}</strong>${levelBadge}</td>
+        ${subLevelTd}
+        ${materiTd}
+        <td><b>${span}</b>${badge}</td>
         <td><span class="bp-badge ok">Dalam kuota</span></td>
     </tr>`;
     }).join('');
 
     if (isLastSiklus && overflow > 0) {
         html += `<tr class="bp-over">
-            <td colspan="6" style="color:#92400e; padding:10px 14px; font-weight:600;">
+            <td colspan="${colCount}" style="color:#92400e; padding:10px 14px; font-weight:600;">
                 <i class="fas fa-arrow-right"></i> + ${overflow} sesi berikutnya otomatis masuk <b>siklus berikutnya</b>.
             </td>
         </tr>`;
@@ -399,65 +434,106 @@ async function loadSummary() {
         const levelTxt = (c.levels?.kode || '') + (c.sub_levels?.name ? ' · ' + c.sub_levels.name : '');
         classMap[c.id] = {
             name: c.name,
-            levelTxt: levelTxt
+            levelTxt: levelTxt,
+            subLevel: c.sub_levels?.name || c.levels?.kode || ''
         };
     });
     const classIds = (classes || []).map(c => c.id);
 
     // Semua pertemuan group dalam satu query, urut tanggal ASC
     // CATATAN: jumlah_sesi menentukan bobot sesi (default 1, bisa 2)
+    // Materi & sub-level diekstra dari FK materi_private(judul) / class_private(sub_levels(name))
     const { data: allP } = classIds.length
         ? await supabase.from('pertemuan_private')
-            .select('id, class_id, tanggal, pertemuan_ke, jumlah_sesi')
+            .select('id, class_id, tanggal, pertemuan_ke, jumlah_sesi, materi_private(judul), class_private(sub_levels(name))')
             .in('class_id', classIds)
             .order('tanggal', { ascending: true })
         : { data: [] };
 
     let blocks = '';
-    periods.forEach((bp, bpIdx) => {
-        const isLastSiklus = bpIdx === 0; // sort desc => index 0 = siklus terbaru
-        
-        // Batas atas tanggal jika ada periode yang lebih baru (agar sesi tidak overlap)
-        const nextNewerPeriod = bpIdx > 0 ? periods[bpIdx - 1] : null;
-        const upperDateLimit = nextNewerPeriod ? nextNewerPeriod.start_date : null;
 
-        // Pertemuan kandidat dalam jangkauan tanggal periode ini
-        const inPeriod = (allP || []).filter(p => {
-            if (!p.tanggal || p.tanggal < bp.start_date) return false;
-            if (upperDateLimit && p.tanggal >= upperDateLimit) return false;
-            return true;
-        });
+    /* ============================================================
+       ALOKASIAN SIKLUS — REGULA:
+       "Periode yang lebih lama wajib jumlah sesi = kuota kontrak."
+       Sesi dikonsumsi KRONOLOGIS di seluruh kelas group. Periode yang
+       lebih old digi pieni penuh (kuota) KESANTAAN sebelum sesi masuk
+       periode yang lebih baru. Pertemuan 2-sesi yang memotong batas
+       kuota → split (carry ke periode berikut).
+       ============================================================ */
+    const periodsAsc = [...periods].sort((a, b) => a.start_date < b.start_date ? -1 : 1);
+    const sessionsAsc = [...(allP || [])].sort((a, b) =>
+        a.tanggal < b.tanggal ? -1 : (a.tanggal > b.tanggal ? 1 : 0));
+    const firstStart = periodsAsc.length ? periodsAsc[0].start_date : '9999-12-31';
+    let idx = 0;
+    while (idx < sessionsAsc.length && sessionsAsc[idx].tanggal < firstStart) idx++;
 
-        const quota = bp.quota_sessions || 4;
+    const allocByPeriod = {};
+    let carryLeft = 0;
+    let carryItem = null;
+
+    periodsAsc.forEach((bp, pi) => {
+        const q = Number(bp.quota_sessions) || 4;
         let acc = 0;
-        const sessInQuota = [];
-        const classBreakdown = {}; // { [className]: totalSesi }
-        (classes || []).forEach(c => { classBreakdown[c.name] = 0; });
-
-        // Total sesi kandidat (gabungan semua kelas)
-        const totalCandidateSesi = inPeriod.reduce((tot, s) => tot + (Number(s.jumlah_sesi) || 1), 0);
-
-        // Alokasikan pertemuan ke dalam kuota global group
-        for (const s of inPeriod) {
-            if (acc >= quota) break;
-            const js = Number(s.jumlah_sesi) || 1;
+        const sessi = [];
+        const brk = {};
+        (classes || []).forEach(c => { brk[c.name] = 0; });
+        const push = (s, take, extra) => {
             const cInfo = classMap[s.class_id] || { name: 'Kelas Private', levelTxt: '' };
+            // Sub-level pereferensi: class_private.sub_levels > materi_private.sub_levels > levels.kode
+            const subLevel = s.class_private?.sub_levels?.name || s.materi_private?.sub_levels?.name || cInfo.subLevel || '';
+            const materi = s.materi_private?.judul?.trim() || '—';
+            sessi.push({ ...s, _mulai: acc + 1, _sampai: acc + take, _className: cInfo.name, _levelTxt: cInfo.levelTxt, _subLevel: subLevel, _materi: materi, ...extra });
+            brk[cInfo.name] = (brk[cInfo.name] || 0) + take;
+            acc += take;
+        };
 
-            sessInQuota.push({
-                ...s,
-                _mulai: acc + 1,
-                _sampai: acc + js,
-                _className: cInfo.name,
-                _levelTxt: cInfo.levelTxt
-            });
-            acc += js;
-            classBreakdown[cInfo.name] = (classBreakdown[cInfo.name] || 0) + js;
+        // 1) konsum carry dari pertemuan 2-sesi yang memotong periode sebelum
+        if (carryLeft > 0 && acc < q) {
+            const take = Math.min(carryLeft, q - acc);
+            push(carryItem, take, { _carry: true, _partial: take < carryLeft, _remainder: carryLeft - take });
+            carryLeft -= take;
+            if (carryLeft <= 0) carryItem = null;
         }
 
-        const pakai = acc;
-        const sisa = Math.max(0, quota - pakai);
-        const habis = pakai >= quota;
-        const overflow = isLastSiklus ? Math.max(0, totalCandidateSesi - pakai) : 0;
+        // 2) konsum sesi berikutnya kronologis (TIDAK berhento di tanggal!)
+        while (acc < q && idx < sessionsAsc.length) {
+            const s = sessionsAsc[idx];
+            const js = Number(s.jumlah_sesi) || 1;
+            const need = q - acc;
+            if (js <= need) {
+                push(s, js, {});
+                idx++;
+            } else {
+                push(s, need, { _partial: true, _remainder: js - need });
+                carryLeft = js - need;
+                carryItem = s;
+                idx++;
+                acc = q;
+                break;
+            }
+        }
+
+        // overflow: sesi setelah SEMUA kuota (hanya dihitung di periode terbaru)
+        let oflow = 0;
+        if (pi === periodsAsc.length - 1) {
+            oflow = carryLeft;
+            for (let j = idx; j < sessionsAsc.length; j++) oflow += Number(sessionsAsc[j].jumlah_sesi) || 1;
+        }
+        allocByPeriod[bp.id] = { sessInQuota: sessi, pakai: acc, quota: q, sisa: Math.max(0, q - acc), habis: acc >= q, classBreakdown: brk, overflow: Math.max(0, oflow), isLastSiklus: pi === periodsAsc.length - 1 };
+    });
+
+    // Render: order DESC sesuai fetch (siklus terbaru di atas)
+    periods.forEach(bp => {
+        const A = allocByPeriod[bp.id] || { sessInQuota: [], pakai: 0, quota: bp.quota_sessions || 4, sisa: 0, habis: false, classBreakdown: {}, overflow: 0, isLastSiklus: true };
+        const sessInQuota = A.sessInQuota;
+        const classBreakdown = A.classBreakdown;
+        const isLastSiklus = A.isLastSiklus;
+
+        const quota = A.quota;
+        const pakai = A.pakai;
+        const sisa = A.sisa;
+        const habis = A.habis;
+        const overflow = A.overflow;
 
         const akhir = habis && sessInQuota.length
             ? fmtTanggal(sessInQuota[sessInQuota.length - 1].tanggal) // tanggal pertemuan yang memenuhi kuota
@@ -490,7 +566,7 @@ async function loadSummary() {
                     <span class="bp-meta">Mode: <b>${escapeHtml(bp.mode)}</b></span>
                     <span class="bp-meta">Awal: <b>${fmtTanggal(bp.start_date)}</b></span>
                     <span class="bp-meta">Akhir (otomatis): <b>${akhir}</b></span>
-                    <span class="bp-meta">Kuota Global: <b>${quota} Sesi</b></span>
+                    <span class="bp-meta">Kuota Kontrak: <b>${quota} Sesi</b></span>
                     <span class="bp-meta">Terpakai: <b>${pakai} Sesi</b></span>
                     ${isLastSiklus && overflow > 0
                         ? `<span class="bp-meta" style="color:#92400e; font-weight:600;">+ ${overflow} sesi menunggu siklus berikutnya</span>`
@@ -509,18 +585,19 @@ async function loadSummary() {
                 </div>
             </div>
             ${breakdownHtml}
-            <div style="padding:14px 16px;">
+            <div style="padding:14px 16px; overflow-x:auto;">
                 <table class="bp-date-table">
                     <thead><tr>
                         <th style="width:40px;">No</th>
                         <th>Tanggal</th>
                         <th>Hari</th>
                         <th>Kelas Siswa</th>
+                        ${privateView === 'rincian' ? '<th>Sub-Level</th><th>Materi</th>' : ''}
                         <th style="width:90px;">Sesi</th>
                         <th>Status Kuota</th>
                     </tr></thead>
                     <tbody>
-                        ${renderGlobalDateTable(sessInQuota, isLastSiklus, overflow)}
+                        ${renderGlobalDateTable(sessInQuota, isLastSiklus, overflow, privateView === 'rincian')}
                     </tbody>
                 </table>
             </div>
@@ -536,9 +613,11 @@ async function loadSummary() {
         </div>
         ${blocks}
         <p style="font-size:.78rem;color:#64748b;margin-top:14px;">
-            Akhir periode ditentukan <b>otomatis setelah kuota sesi global terpakai</b> (default 4).
-            Sesi dihitung dari <b>pertemuan_private</b> dengan bobot <b>jumlah_sesi</b> per pertemuan
-            (default 1, bisa 2). Sesi dari seluruh kelas milik group memotong kuota periode yang sama secara kronologis.
+            <b>Regula:</b> Periode yang lebih old wajib digi pieni sampai kuota kontrak dalam jumlah
+            sesi <b>keshanyan sebelum</b> sesi masuk periode yang lebih baru. Sesi dihitung dari
+            <b>pertemuan_private</b> dengan bobot <b>jumlah_sesi</b> per pertemuan (default 1, bisa 2)
+            dan dikonsumsi kronologis di seluruh kelas milik group. Pertemuan 2-sesi yang memotong
+            batas kuota digi <b>split (carry)</b> ke periode berikut.
         </p>
     </div>`;
 }
