@@ -20,6 +20,11 @@ let studentList = [];
 let attendanceMap = {}; 
 let achievementScoreMap = {}; 
 
+// --- STATE RIWAYAT (paginasi card in fondo) ---
+const HISTORY_PER_PAGE = 8;   // card per pagina
+let historyAll = [];          // cache semua sesi kelas (urut tanggal DESC)
+let historyPage = 1;          // pagina attiva (1-based) 
+
 // --- SMART INPUT STATE ---
 let debounceTimer = null;
 
@@ -182,6 +187,7 @@ export async function init(canvas) {
                     <div id="historyGrid" class="history-grid-wide">
                         <div style="text-align:center; color:#ccc; grid-column:1/-1;">Memuat riwayat...</div>
                     </div>
+                    <div id="historyPagination" class="history-pagination" style="display:none;"></div>
                 </div>
 
             </div>
@@ -275,6 +281,14 @@ function injectStyles() {
         .history-grid-wide { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; }
         .history-card-color { padding: 20px; border-radius: 16px; color: white; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: transform 0.2s; }
         .history-card-color:hover { transform: translateY(-5px); }
+
+        /* Paginasi Riwayat (card in fondo) */
+        .history-pagination { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; margin-top: 18px; }
+        .history-page-btn { min-width: 36px; height: 34px; padding: 0 10px; border: 1px solid #e2e8f0; background: #fff; color: #475569; border-radius: 8px; font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: 0.15s; }
+        .history-page-btn:hover:not(:disabled) { background: #f0f7ff; color: #4d97ff; }
+        .history-page-btn.active { background: #2563eb; color: #fff; border-color: #2563eb; box-shadow: 0 2px 6px rgba(37,99,235,0.3); }
+        .history-page-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+        .history-page-info { font-size: 0.78rem; color: #64748b; margin-left: 4px; white-space: nowrap; }
         
         .full { width: 100%; } .margin-top { margin-top: 15px; }
         .fade-in { animation: fadeIn 0.3s ease-out; } @keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
@@ -513,19 +527,41 @@ async function loadLastSession() {
 }
 
 async function loadHistory() {
-    const grid = document.getElementById('historyGrid');
+    // Cache semua sesi kelas sekali (urut tanggal DESC), poi slise per pagina
     const { data } = await supabase.from('pertemuan_private')
         .select(`id, tanggal, teacher_id, materi_private(judul)`)
         .eq('class_id', classId)
-        .order('tanggal', {ascending:false}).limit(6);
-    
-    if(!data || !data.length) {
+        .order('tanggal', { ascending: false });
+    historyAll = data || [];
+
+    // Reset pagina su refresh lista (dopo save/delete/merge)
+    historyPage = 1;
+    renderHistoryPage();
+}
+
+function renderHistoryPage() {
+    const grid = document.getElementById('historyGrid');
+    const pag = document.getElementById('historyPagination');
+    const total = historyAll.length;
+
+    if (!grid) return;
+    if (!total) {
         grid.innerHTML = '<div style="color:#ccc; text-align:center; grid-column:1/-1;">Belum ada riwayat.</div>';
+        if (pag) pag.style.display = 'none';
         return;
     }
 
-    grid.innerHTML = data.map((item, index) => `
-        <div class="history-card-color variant-${index % 4}" onclick="window.loadSessionForEdit('${item.id}')">
+    const totalPages = Math.max(1, Math.ceil(total / HISTORY_PER_PAGE));
+    if (historyPage > totalPages) historyPage = totalPages;
+    if (historyPage < 1) historyPage = 1;
+
+    const start = (historyPage - 1) * HISTORY_PER_PAGE;
+    const pageItems = historyAll.slice(start, start + HISTORY_PER_PAGE);
+
+    grid.innerHTML = pageItems.map((item, i) => {
+        const absIndex = start + i; // warna tetap konsisten fra pagina
+        return `
+        <div class="history-card-color variant-${absIndex % 4}" onclick="window.loadSessionForEdit('${item.id}')">
             <div style="font-weight:bold; font-size:1.1rem; opacity:0.9;">
                 <i class="fas fa-calendar-alt"></i> ${new Date(item.tanggal).toLocaleDateString('id-ID', {day:'numeric', month:'short'})}
             </div>
@@ -535,9 +571,37 @@ async function loadHistory() {
             <div style="font-size:0.8rem; margin-top:15px; text-align:right; opacity:0.8;">
                 Edit <i class="fas fa-arrow-right"></i>
             </div>
-        </div>
-    `).join('');
+        </div>`;
+    }).join('') + `\n<div class="history-page-info" style="display:block; text-align:right; color:#94a3b8; font-size:0.72rem; grid-column:1/-1; padding-top:4px;">
+        Pagina ${historyPage} / ${totalPages} · ${total} sesi
+    </div>`;
+
+    // Render paginasi se più di 1 pagina
+    if (totalPages > 1) {
+        let btns = '';
+        for (let p = 1; p <= totalPages; p++) {
+            btns += `<button class="history-page-btn ${p === historyPage ? 'active' : ''}" data-page="${p}">${p}</button>`;
+        }
+        pag.innerHTML = `
+            <button class="history-page-btn" data-page="prev" ${historyPage === 1 ? 'disabled' : ''}><i class="fas fa-chevron-left"></i></button>
+            ${btns}
+            <button class="history-page-btn" data-page="next" ${historyPage === totalPages ? 'disabled' : ''}><i class="fas fa-chevron-right"></i></button>
+        `;
+        pag.style.display = 'flex';
+        pag.onclick = (e) => {
+            const btn = e.target.closest('.history-page-btn');
+            if (!btn || btn.disabled) return;
+            const val = btn.dataset.page;
+            if (val === 'prev') historyPage = Math.max(1, historyPage - 1);
+            else if (val === 'next') historyPage = Math.min(totalPages, historyPage + 1);
+            else historyPage = Number(val);
+            renderHistoryPage();
+        };
+    } else if (pag) {
+        pag.style.display = 'none';
+    }
 }
+window.renderHistoryPage = renderHistoryPage;
 
 // --- SAVE SESSION ---
 async function savePertemuan() {
