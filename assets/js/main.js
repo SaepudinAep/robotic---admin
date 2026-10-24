@@ -4,7 +4,7 @@ import { supabaseUrl, supabaseKey } from './config.js';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // --- KONSTANTA KEAMANAN ---
-const ALLOWED_ROLES = ['super_admin', 'teacher']; // Hanya mereka yang boleh masuk
+const ALLOWED_ROLES = ['super_admin', 'teacher', 'pic']; // Hanya mereka yang boleh masuk
 const CACHE_KEY_ROLE = 'user_role';
 
 // DOM Elements
@@ -73,7 +73,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // --- 3. UI RENDERING ---
 function renderHeaderInfo() {
-    const roleMap = { 'super_admin': 'Administrator', 'teacher': 'Guru' };
+    const roleMap = { 'super_admin': 'Administrator', 'teacher': 'Guru', 'pic': 'PIC / Staff' };
     const displayRole = roleMap[userProfile.role] || userProfile.role;
 
     // Header Atas

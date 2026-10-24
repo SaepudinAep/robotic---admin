@@ -506,17 +506,25 @@ async function saveUser() {
 
     try {
         // Menggunakan Edge Function untuk Create/Update Auth & DB
+        const reqPayload = { 
+            action: id ? 'UPDATE' : 'CREATE', 
+            userId: id || undefined, 
+            name, 
+            email, 
+            role 
+        };
+        if (password && password.trim() !== '') {
+            reqPayload.password = password;
+        }
+
         const response = await fetch(EDGE_URL, {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json', 
                 'apikey': supabaseKey, 
-                'Authorization': `Bearer ${supabaseKey}` 
+                'Authorization': Bearer  
             },
-            body: JSON.stringify({ 
-                action: id ? 'UPDATE' : 'CREATE', 
-                userId: id, name, email, password, role 
-            })
+            body: JSON.stringify(reqPayload)
         });
 
         if (!response.ok) {
